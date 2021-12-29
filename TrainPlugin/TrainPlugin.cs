@@ -6,6 +6,7 @@ using DVMultiplayer.Networking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Timers;
 
 namespace TrainPlugin
@@ -17,6 +18,8 @@ namespace TrainPlugin
         public override Version Version => new Version("1.6.48");
 
         private readonly List<WorldTrain> worldTrains;
+        private readonly WorldTrain defaultTrain;
+        private List<WorldTrain> activeTrains;
         private readonly List<IClient> playerHasInitializedTrain;
         private bool isLoadingTrain = false;
         private BufferQueue queue;
@@ -24,6 +27,8 @@ namespace TrainPlugin
         public TrainPlugin(PluginLoadData pluginLoadData) : base(pluginLoadData)
         {
             worldTrains = new List<WorldTrain>();
+            defaultTrain = default(WorldTrain);
+            activeTrains = new List<WorldTrain>();
             queue = new BufferQueue();
             playerHasInitializedTrain = new List<IClient>();
             ClientManager.ClientConnected += OnClientConnected;
@@ -578,6 +583,7 @@ namespace TrainPlugin
             using (DarkRiftReader reader = message.GetReader())
             {
                 worldTrains.Clear();
+                activeTrains.Clear();
                 worldTrains.AddRange(reader.ReadSerializables<WorldTrain>());
             }
         }
@@ -773,7 +779,13 @@ namespace TrainPlugin
                     TrainLocation[] datas = reader.ReadSerializables<TrainLocation>();
                     foreach(TrainLocation data in datas)
                     {
-                        WorldTrain train = worldTrains.FirstOrDefault(t => t.Guid == data.TrainId);
+                        WorldTrain train = activeTrains.First(t => t.Guid == data.TrainId);
+                        if (train == defaultTrain)
+                        {
+                            train = worldTrains.FirstOrDefault(t => t.Guid == data.TrainId);
+                            activeTrains.Add(train);
+                        }
+                        
                         if (data.Timestamp <= train.updatedAt)
                             continue;
 
